@@ -17,7 +17,7 @@ def count_corpus_pairs(sequences: list[list[bytes]]) -> Counter[tuple[bytes, byt
   
   counts: Counter[tuple[bytes, bytes]] = Counter()
   for sequence in sequences:
-    counts.append(pair_counter(sequence))
+    counts += pair_counter(sequence)
   return counts
 
 # merge one chosen pair in one sequence.
@@ -45,4 +45,3 @@ def apply_merge(
   for sequence in sequences:
     merged_sequences.append(merge_pair(sequence, pair))
   return merged_sequences
-
