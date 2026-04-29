@@ -4,13 +4,29 @@ import regex as re
 
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
+def run_train_bpe(text: str) -> list[list[bytes]]:
+  pairs = text_to_byte_sequences(text)
+  count_corpus_pairs(pairs)
+
 # take raw text and split it into meaningful chunks before BPE sees any bytes
 def pretokenize(text: str) -> list[str]:
-    return [match.group(0) for match in re.finditer(PAT, text)]
+  return [match.group(0) for match in re.finditer(PAT, text)]
+
+def pretoken_to_byte_tokens(pretoken: str) -> list[bytes]:
+  return to_byte_tokens(pretoken)
+
+def to_byte_tokens(text: str) -> list[bytes]:
+  return [bytes([b]) for b in text.encode("utf-8")]
+
+# convert each pretoken string into a list of single-byte bytes objects
+def to_byte_tokens(text: str) -> list[bytes]:
+  return [bytes([b]) for b in text.encode("utf-8")]
+
+def text_to_byte_sequences(text: str) -> list[list[bytes]]:
+  return [pretoken_to_byte_tokens(tok) for tok in pretokenize(text)]
 
 # count adjacent pairs in one token sequence -> Counter[pair, count]
 def pair_counter(tokens: Sequence[bytes]) -> Counter[tuple[bytes, bytes]]:
-  
   counts: Counter[tuple[bytes, bytes]] = Counter()
   for i in range(0, len(tokens) - 1):
       pair = (tokens[i], tokens[i+1])
@@ -21,7 +37,6 @@ def pair_counter(tokens: Sequence[bytes]) -> Counter[tuple[bytes, bytes]]:
 # count pairs across the whole corpus,
 # enable training to choose the most frequent pair
 def count_corpus_pairs(sequences: list[list[bytes]]) -> Counter[tuple[bytes, bytes]]:
-  
   counts: Counter[tuple[bytes, bytes]] = Counter()
   for sequence in sequences:
     counts += pair_counter(sequence)
@@ -29,7 +44,6 @@ def count_corpus_pairs(sequences: list[list[bytes]]) -> Counter[tuple[bytes, byt
 
 # merge one chosen pair in one sequence.
 def merge_pair(tokens: Sequence[bytes], pair: tuple[bytes, bytes]) -> list[bytes]:
-
   merge_list: list[bytes] = []
   i = 0
   while i < len(tokens):
@@ -46,7 +60,6 @@ def merge_pair(tokens: Sequence[bytes], pair: tuple[bytes, bytes]) -> list[bytes
 
 # apply one chosen merge pair across all token sequences in the training corpus
 def apply_merge(
-  
   sequences: list[list[bytes]], pair: tuple[bytes, bytes]) -> list[list[bytes]]:
   merged_sequences: list[list[bytes]] = []
   for sequence in sequences:
