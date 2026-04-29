@@ -1,5 +1,12 @@
 from collections import Counter
 from collections.abc import Sequence
+import regex as re
+
+PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+
+# take raw text and split it into meaningful chunks before BPE sees any bytes
+def pretokenize(text: str) -> list[str]:
+    return [match.group(0) for match in re.finditer(PAT, text)]
 
 # count adjacent pairs in one token sequence -> Counter[pair, count]
 def pair_counter(tokens: Sequence[bytes]) -> Counter[tuple[bytes, bytes]]:
