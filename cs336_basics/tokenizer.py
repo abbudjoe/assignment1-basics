@@ -25,16 +25,15 @@ def run_train_bpe(
       vocab[len(vocab)] = token_bytes
   
   merges = []
-
-  while we still have room in vocab:
+  while len(vocab) < vocab_size:
       pair_counts = count_corpus_pairs(corpus)
-      if there are no pairs left:
+      if not pair_counts:
           break
-
-      best_pair = choose the most frequent pair
+      
+      best_pair, _ = pair_counts.most_common(1)[0]
       merges.append(best_pair)
       corpus = apply_merge(corpus, best_pair)
-      add the merged bytes token to vocab
+      vocab[len(vocab)] = best_pair[0] + best_pair[1]
 
   return vocab, merges
 
