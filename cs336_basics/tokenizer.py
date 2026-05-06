@@ -1,12 +1,42 @@
 from collections import Counter
 from collections.abc import Sequence
+import os
 import regex as re
 
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
-def run_train_bpe(text: str) -> list[list[bytes]]:
-  pairs = text_to_byte_sequences(text)
-  count_corpus_pairs(pairs)
+def run_train_bpe(
+  input_path: str | os.PathLike, 
+  vocab_size: int, 
+  special_tokens: list[str],
+  **kwargs,
+) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
+  
+  with open(input_path, "r", encoding="utf-8") as f:
+    text = f.read()
+
+  corpus = text_to_byte_sequences(text)
+
+  vocab: dict[int, bytes] = {i: bytes([i]) for i in range(256)}
+
+  for special_token in special_tokens:
+    token_bytes = special_token.encode("utf-8")
+    if token_bytes not in set(vocab.values()):
+      vocab[len(vocab)] = token_bytes
+  
+  merges = []
+
+  while we still have room in vocab:
+      pair_counts = count_corpus_pairs(corpus)
+      if there are no pairs left:
+          break
+
+      best_pair = choose the most frequent pair
+      merges.append(best_pair)
+      corpus = apply_merge(corpus, best_pair)
+      add the merged bytes token to vocab
+
+  return vocab, merges
 
 # take raw text and split it into meaningful chunks before BPE sees any bytes
 def pretokenize(text: str) -> list[str]:
@@ -14,9 +44,6 @@ def pretokenize(text: str) -> list[str]:
 
 def pretoken_to_byte_tokens(pretoken: str) -> list[bytes]:
   return to_byte_tokens(pretoken)
-
-def to_byte_tokens(text: str) -> list[bytes]:
-  return [bytes([b]) for b in text.encode("utf-8")]
 
 # convert each pretoken string into a list of single-byte bytes objects
 def to_byte_tokens(text: str) -> list[bytes]:
