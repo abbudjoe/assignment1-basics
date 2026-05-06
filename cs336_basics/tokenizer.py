@@ -91,3 +91,27 @@ def apply_merge(
   for sequence in sequences:
     merged_sequences.append(merge_pair(sequence, pair))
   return merged_sequences
+
+class BPETokenizer:
+  def __init__(
+    self,
+    vocab: dict[int, bytes],
+    merges: list[tuple[bytes, bytes]],
+    special_tokens: list[str] | None = None,
+  ):
+    self.vocab = vocab
+    self.merges = merges
+    self.special_tokens = special_tokens or []
+
+    def get_tokenizer(
+      vocab: dict[int, bytes],
+      merges: list[tuple[bytes, bytes]],
+      special_tokens: list[str] | None = None,
+    ) -> BPETokenizer:
+      return BPETokenizer(vocab, merges, special_tokens)
+
+    def decode(self, ids: list[int]) -> str:
+      token_bytes = b"".join(self.vocab[token_id] for token_id in ids)
+      return token_bytes.decode("utf-8", errors="replace")
+    
+
