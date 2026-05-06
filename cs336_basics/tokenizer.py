@@ -102,8 +102,31 @@ class BPETokenizer:
     self.vocab = vocab
     self.merges = merges
     self.special_tokens = special_tokens or []
+    self.token_to_id = {token: token_id for token_id, token in self.vocab.items()}
+    self.merge_ranks = {pair: rank for rank, pair in enumerate(self.merges)}
 
+  def encode_pretoken(self, pretoken: str) -> list[int]:
+    tokens = to_byte_tokens(pretoken)
 
+    while True:
+      pairs = pair_counter(tokens)
+      ranked_pairs = [
+        (self.merge_ranks[pair], pair)
+        for pair in pairs
+        if pair in self.merge_ranks
+      ]
+      if not ranked_pairs:
+        break
+      
+      _, best_pair = min(ranked_pairs)
+      tokens = merge_pair(tokens, best_pair)
+    return [self.token_to_id[token] for token in tokens]
+
+  def encode(self, text: str) -> list[int]:
+    ids: list[int] = []
+    for pretoken in pretokenize(text):
+      ids.extend(self.encode_pretoken(pretoken))
+    return ids
 
   def decode(self, ids: list[int]) -> str:
     token_bytes = b"".join(self.vocab[token_id] for token_id in ids)
