@@ -101,9 +101,13 @@ class BPETokenizer:
   ):
     self.vocab = vocab
     self.merges = merges
-    self.special_tokens = special_tokens or []
     self.token_to_id = {token: token_id for token_id, token in self.vocab.items()}
     self.merge_ranks = {pair: rank for rank, pair in enumerate(self.merges)}
+    self.special_tokens = special_tokens or []
+    self.special_token_to_id = {
+      token: self.token_to_id[token.encode("utf-8")]
+      for token in self.special_tokens
+    }
 
   def encode_pretoken(self, pretoken: str) -> list[int]:
     tokens = to_byte_tokens(pretoken)
@@ -123,10 +127,23 @@ class BPETokenizer:
     return [self.token_to_id[token] for token in tokens]
 
   def encode(self, text: str) -> list[int]:
+    if not self.special_tokens:
+      ids: list[int] = []
+      for pretoken in pretokenize(text):
+        ids.extend(self.encode_pretoken(pretoken))
+      return ids
+    
     ids: list[int] = []
-    for pretoken in pretokenize(text):
-      ids.extend(self.encode_pretoken(pretoken))
-    return ids
+    special_pattern = "(" + "|".join(re.escape(tok) for tok in self.special_tokens) + ")"
+    parts = re.split(special_pattern, text)
+    for part in parts: 
+      if part == "":
+        continue
+      if part in self.special_token_to_id:
+        ids.append(self.special_token_to_id[part])
+      else:
+        for pretoken in pretokenize(part):
+          ids.extend(self.encode_pretoken(pretoken))
 
   def decode(self, ids: list[int]) -> str:
     token_bytes = b"".join(self.vocab[token_id] for token_id in ids)
