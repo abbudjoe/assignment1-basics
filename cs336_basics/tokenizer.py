@@ -48,7 +48,7 @@ def pretoken_to_byte_tokens(pretoken: str) -> list[bytes]:
 def to_byte_tokens(text: str) -> list[bytes]:
   return [bytes([b]) for b in text.encode("utf-8")]
 
-def text_to_byte_sequences(text: str) -> list[list[bytes]]:
+def text_to_byte_sequences(text: str) -> dict[tuple[[bytes, ...], int]]:
   return [pretoken_to_byte_tokens(tok) for tok in pretokenize(text)]
 
 # count adjacent pairs in one token sequence -> Counter[pair, count]
@@ -62,10 +62,10 @@ def pair_counter(tokens: Sequence[bytes]) -> Counter[tuple[bytes, bytes]]:
 
 # count pairs across the whole corpus,
 # enable training to choose the most frequent pair
-def count_corpus_pairs(sequences: list[list[bytes]]) -> Counter[tuple[bytes, bytes]]:
+def count_corpus_pairs(sequences: dict[tuple[bytes, ...], int]) -> Counter[tuple[bytes, bytes]]:
   counts: Counter[tuple[bytes, bytes]] = Counter()
-  for sequence in sequences:
-    counts += pair_counter(sequence)
+  for sequence, frequency in sequences.items():
+    counts += pair_counter(sequence * frequency)
   return counts
 
 # merge one chosen pair in one sequence.
@@ -86,10 +86,12 @@ def merge_pair(tokens: Sequence[bytes], pair: tuple[bytes, bytes]) -> list[bytes
 
 # apply one chosen merge pair across all token sequences in the training corpus
 def apply_merge(
-  sequences: list[list[bytes]], pair: tuple[bytes, bytes]) -> list[list[bytes]]:
-  merged_sequences: list[list[bytes]] = []
-  for sequence in sequences:
-    merged_sequences.append(merge_pair(sequence, pair))
+  sequences: dict[tuple[bytes, ...], int], pair: tuple[bytes, bytes]) -> dict[tuple[bytes, ...], int]:
+  merged_sequences: dict[tuple[bytes, ...], int] = {}
+  for sequence, frequency in sequences.items():
+    merged_sequence = tuple(merge_pair(sequence, pair))
+    merged_sequences.append(merged_sequence)
+    merged_sequences[merged_sequence] = merged_sequences.get(merged_sequence, 0) + frequency
   return merged_sequences
 
 class BPETokenizer:
@@ -149,7 +151,7 @@ class BPETokenizer:
   def encode_iterable(self, iterable):
     for text in iterable:
         yield from self.encode(text)
-        
+
   def decode(self, ids: list[int]) -> str:
     token_bytes = b"".join(self.vocab[token_id] for token_id in ids)
     return token_bytes.decode("utf-8", errors="replace")
