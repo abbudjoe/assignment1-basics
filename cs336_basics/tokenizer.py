@@ -82,13 +82,18 @@ def pair_counter(tokens: Sequence[bytes]) -> Counter[tuple[bytes, bytes]]:
 
 # count pairs across the whole corpus,
 # enable training to choose the most frequent pair
-def count_corpus_pairs(sequences: dict[tuple[bytes, ...], int]) -> Counter[tuple[bytes, bytes]]:
+def count_corpus_pairs(
+  sequences: dict[tuple[bytes, ...], int]
+) -> Counter[tuple[bytes, bytes]]:
   counts: Counter[tuple[bytes, bytes]] = Counter()
+
   for sequence, frequency in sequences.items():
-    local_counts = pair_counter(sequence)
-    for pair, count in local_counts.items():
-      counts[pair] += count * frequency
+    for i in range(len(sequence) - 1):
+      pair = (sequence[i], sequence[i + 1])
+      counts[pair] += frequency
+
   return counts
+
 
 # merge one chosen pair in one sequence.
 def merge_pair(tokens: Sequence[bytes], pair: tuple[bytes, bytes]) -> list[bytes]:
