@@ -15,7 +15,7 @@ def run_train_bpe(
   with open(input_path, "r", encoding="utf-8") as f:
     text = f.read()
 
-  corpus = text_to_byte_sequences(text)
+  corpus = text_to_byte_sequences(text, special_tokens)
 
   vocab: dict[int, bytes] = {i: bytes([i]) for i in range(256)}
 
@@ -24,13 +24,13 @@ def run_train_bpe(
     if token_bytes not in set(vocab.values()):
       vocab[len(vocab)] = token_bytes
   
-  merges = []
+  merges: list[tuple[bytes, bytes]] = []
   while len(vocab) < vocab_size:
       pair_counts = count_corpus_pairs(corpus)
       if not pair_counts:
           break
       
-      best_pair, _ = pair_counts.most_common(1)[0]
+      best_pair = max(pair_counts, key=lambda pair: (pair_counts[pair], pair))
       merges.append(best_pair)
       corpus = apply_merge(corpus, best_pair)
       vocab[len(vocab)] = best_pair[0] + best_pair[1]
@@ -48,8 +48,29 @@ def pretoken_to_byte_tokens(pretoken: str) -> list[bytes]:
 def to_byte_tokens(text: str) -> list[bytes]:
   return [bytes([b]) for b in text.encode("utf-8")]
 
-def text_to_byte_sequences(text: str) -> dict[tuple[[bytes, ...], int]]:
-  return [pretoken_to_byte_tokens(tok) for tok in pretokenize(text)]
+def text_to_byte_sequences(
+  text: str,
+  special_tokens: list[str] | None = None,
+) -> dict[tuple[bytes, ...], int]:
+  counts: dict[tuple[bytes, ...], int] = {}
+
+  parts = [text]
+  if special_tokens:
+    special_tokens = sorted(special_tokens, key=len, reverse=True)
+    special_pattern = "(" + "|".join(re.escape(tok) for tok in special_tokens) + ")"
+    parts = re.split(special_pattern, text)
+
+  for part in parts:
+    if part == "":
+      continue
+    if special_tokens and part in special_tokens:
+      continue
+    
+    for pretoken in pretokenize(part):
+      sequence = tuple(pretoken_to_byte_tokens(pretoken))
+      counts[sequence] = counts.get(sequence, 0) + 1
+
+  return counts
 
 # count adjacent pairs in one token sequence -> Counter[pair, count]
 def pair_counter(tokens: Sequence[bytes]) -> Counter[tuple[bytes, bytes]]:
@@ -59,13 +80,14 @@ def pair_counter(tokens: Sequence[bytes]) -> Counter[tuple[bytes, bytes]]:
       counts[pair] += 1
   return counts
 
-
 # count pairs across the whole corpus,
 # enable training to choose the most frequent pair
 def count_corpus_pairs(sequences: dict[tuple[bytes, ...], int]) -> Counter[tuple[bytes, bytes]]:
   counts: Counter[tuple[bytes, bytes]] = Counter()
   for sequence, frequency in sequences.items():
-    counts += pair_counter(sequence * frequency)
+    local_counts = pair_counter(sequence)
+    for pair, count in local_counts.items():
+      counts[pair] += count * frequency
   return counts
 
 # merge one chosen pair in one sequence.
@@ -90,7 +112,6 @@ def apply_merge(
   merged_sequences: dict[tuple[bytes, ...], int] = {}
   for sequence, frequency in sequences.items():
     merged_sequence = tuple(merge_pair(sequence, pair))
-    merged_sequences.append(merged_sequence)
     merged_sequences[merged_sequence] = merged_sequences.get(merged_sequence, 0) + frequency
   return merged_sequences
 
@@ -162,10 +183,3 @@ def get_tokenizer(
   special_tokens: list[str] | None = None,
 ) -> BPETokenizer:
   return BPETokenizer(vocab, merges, special_tokens)
-
-
-    
-
-
-
-
