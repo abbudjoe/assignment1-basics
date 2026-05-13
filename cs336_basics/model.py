@@ -7,7 +7,7 @@ class Linear(nn.Module):
   def __init__ (self, in_features: int, out_features: int):
     super().__init__()
 
-    std = math.sqry(2 / (in_features + out_features))
+    std = math.sqrt(2 / (in_features + out_features))
     self.weight = nn.Parameter(
       torch.empty(out_features, in_features)
     )
