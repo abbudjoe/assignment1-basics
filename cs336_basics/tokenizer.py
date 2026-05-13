@@ -1,3 +1,4 @@
+# paste the entire tokenizer.py contents here
 from collections import Counter
 from collections.abc import Sequence
 import os
@@ -26,15 +27,18 @@ def run_train_bpe(
   
   merges: list[tuple[bytes, bytes]] = []
   pair_counts, pair_to_sequences = build_pair_index(corpus)
-  while len(vocab) < vocab_size:
-      if not pair_counts:
-          break
-      
-      best_pair = max(pair_counts, key=lambda pair: (pair_counts[pair], pair))
-      merges.append(best_pair)
-      corpus = apply_merge(corpus, best_pair)
-      vocab[len(vocab)] = best_pair[0] + best_pair[1]
+  while len(vocab) < vocab_size and pair_counts:
+    best_pair = max(pair_counts, key=lambda pair: (pair_counts[pair], pair))
 
+    merges.append(best_pair)
+    vocab[len(vocab)] = best_pair[0] + best_pair[1]
+
+    apply_merge_with_index(
+      corpus,
+      pair_counts,
+      pair_to_sequences,
+      best_pair,
+    )
   return vocab, merges
 
 # take raw text and split it into meaningful chunks before BPE sees any bytes
@@ -135,6 +139,45 @@ def sequence_has_pair(
     if (sequence[i], sequence[i + 1]) == pair:
       return True
   return False
+
+def apply_merge_with_index(
+  corpus: dict[tuple[bytes, ...], int],
+  pair_counts: Counter[tuple[bytes, bytes]],
+  pair_to_sequences: dict[tuple[bytes, bytes], set[tuple[bytes, ...]]],
+  pair: tuple[bytes, bytes],
+) -> None:
+  affected_sequences = list(pair_to_sequences.get(pair, set()))
+  merged_updates: dict[tuple[bytes, ...], int] = {}
+
+  for old_sequence in affected_sequences:
+    frequency = corpus.get(old_sequence)
+    if frequency is None:
+      continue
+
+    for old_pair, old_count in sequence_pair_counts(old_sequence, frequency).items():
+      pair_counts[old_pair] -= old_count
+      if pair_counts[old_pair] <= 0:
+        pair_counts.pop(old_pair, None)
+
+      sequences_for_pair = pair_to_sequences.get(old_pair)
+      if sequences_for_pair is not None:
+        sequences_for_pair.discard(old_sequence)
+        if not sequences_for_pair:
+          pair_to_sequences.pop(old_pair, None)
+
+    del corpus[old_sequence]
+
+    # Add new merged sequence contributions.
+    new_sequence = tuple(merge_pair(old_sequence, pair))
+    merged_updates[new_sequence] = merged_updates.get(new_sequence, 0) + frequency
+    
+  for new_sequence, frequency in merged_updates.items():
+    corpus[new_sequence] = corpus.get(new_sequence, 0) + frequency
+
+    for new_pair, new_count in sequence_pair_counts(new_sequence, frequency).items():
+      pair_counts[new_pair] += new_count
+      pair_to_sequences.setdefault(new_pair, set()).add(new_sequence)
+
 
 # apply one chosen merge pair across all token sequences in the training corpus
 def apply_merge(
