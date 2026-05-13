@@ -25,8 +25,8 @@ def run_train_bpe(
       vocab[len(vocab)] = token_bytes
   
   merges: list[tuple[bytes, bytes]] = []
+  pair_counts, pair_to_sequences = build_pair_index(corpus)
   while len(vocab) < vocab_size:
-      pair_counts = count_corpus_pairs(corpus)
       if not pair_counts:
           break
       
@@ -80,20 +80,50 @@ def pair_counter(tokens: Sequence[bytes]) -> Counter[tuple[bytes, bytes]]:
       counts[pair] += 1
   return counts
 
-# count pairs across the whole corpus,
-# enable training to choose the most frequent pair
-def count_corpus_pairs(
-  sequences: dict[tuple[bytes, ...], int]
+def sequence_pairs(sequence: tuple[bytes, ...]) -> set[tuple[bytes, bytes]]:
+  pairs: set[tuple[bytes, bytes]] = set()
+  for i in range(len(sequence) - 1):
+    pairs.add((sequence[i], sequence[i + 1]))
+  return pairs
+
+def sequence_pair_counts(
+  sequence: tuple[bytes, ...],
+  frequency: int,
 ) -> Counter[tuple[bytes, bytes]]:
   counts: Counter[tuple[bytes, bytes]] = Counter()
-
-  for sequence, frequency in sequences.items():
-    for i in range(len(sequence) - 1):
-      pair = (sequence[i], sequence[i + 1])
-      counts[pair] += frequency
-
+  for i in range(len(sequence) - 1):
+    counts[(sequence[i], sequence[i + 1])] += frequency
   return counts
 
+def build_pair_index(
+  corpus: dict[tuple[bytes, ...], int],
+) -> tuple[
+  Counter[tuple[bytes, bytes]],
+  dict[tuple[bytes, bytes], set[tuple[bytes, ...]]],
+]:
+  pair_counts: Counter[tuple[bytes, bytes]] = Counter()
+  pair_to_sequences: dict[tuple[bytes, bytes], set[tuple[bytes, ...]]] = {}
+
+  for sequence, frequency in corpus.items():
+    for pair, count in sequence_pair_counts(sequence, frequency).items():
+      pair_counts[pair] += count
+      pair_to_sequences.setdefault(pair, set()).add(sequence)
+
+  return pair_counts, pair_to_sequences
+
+# # count pairs across the whole corpus,
+# # enable training to choose the most frequent pair
+# def count_corpus_pairs(
+#   sequences: dict[tuple[bytes, ...], int]
+# ) -> Counter[tuple[bytes, bytes]]:
+#   counts: Counter[tuple[bytes, bytes]] = Counter()
+
+#   for sequence, frequency in sequences.items():
+#     for i in range(len(sequence) - 1):
+#       pair = (sequence[i], sequence[i + 1])
+#       counts[pair] += frequency
+
+#   return counts
 
 # merge one chosen pair in one sequence.
 def merge_pair(tokens: Sequence[bytes], pair: tuple[bytes, bytes]) -> list[bytes]:
@@ -111,13 +141,30 @@ def merge_pair(tokens: Sequence[bytes], pair: tuple[bytes, bytes]) -> list[bytes
       i += 1
   return merge_list
 
+def sequence_has_pair(
+  sequence: Sequence[bytes],
+  pair: tuple[bytes, bytes],
+) -> bool:
+  for i in range(len(sequence) - 1):
+    if (sequence[i], sequence[i + 1]) == pair:
+      return True
+  return False
+
 # apply one chosen merge pair across all token sequences in the training corpus
 def apply_merge(
-  sequences: dict[tuple[bytes, ...], int], pair: tuple[bytes, bytes]) -> dict[tuple[bytes, ...], int]:
+  sequences: dict[tuple[bytes, ...], int], 
+  pair: tuple[bytes, bytes]
+) -> dict[tuple[bytes, ...], int]:
   merged_sequences: dict[tuple[bytes, ...], int] = {}
+  
   for sequence, frequency in sequences.items():
-    merged_sequence = tuple(merge_pair(sequence, pair))
+    if sequence_has_pair(sequence, pair):
+      merged_sequence = tuple(merge_pair(sequence, pair))
+    else: 
+      merged_sequence = sequence
+
     merged_sequences[merged_sequence] = merged_sequences.get(merged_sequence, 0) + frequency
+  
   return merged_sequences
 
 class BPETokenizer:
