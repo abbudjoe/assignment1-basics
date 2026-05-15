@@ -8,7 +8,9 @@ import numpy.typing as npt
 import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
-from cs336_basics.model import linear
+from cs336_basics.model import Linear
+from cs336_basics.model import Embedding
+from cs336_basics.model import SwiGLU
 
 def run_linear(
     d_in: int,
@@ -28,8 +30,10 @@ def run_linear(
     Returns:
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
-
-    return linear(d_in, d_out, in_features, weights)
+    layer = Linear(d_in, d_out)
+    with torch.no_grad():
+      layer.weight.copy_(weights)
+    return layer(in_features)
 
 
 def run_embedding(
@@ -50,8 +54,10 @@ def run_embedding(
     Returns:
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
-
-    raise NotImplementedError
+    layer = Embedding(vocab_size, d_model)
+    with torch.no_grad():
+      layer.weight.copy_(weights)
+    return layer(token_ids)
 
 
 def run_swiglu(
@@ -83,8 +89,12 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
-
+    layer = SwiGLU(d_model, d_ff)
+    with torch.no_grad():
+      layer.w1.weight.copy_(w1_weight)
+      layer.w2.weight.copy_(w2_weight)
+      layer.w3.weight.copy_(w3_weight)
+    return layer(in_features)
 
 def run_scaled_dot_product_attention(
     Q: Float[Tensor, " ... queries d_k"],
@@ -392,7 +402,7 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         Float[Tensor,"..."]: of with the same shape as `in_features` with the output of applying
         SiLU to each element.
     """
-    raise NotImplementedError
+    return in_features * torch.sigmoid(in_features)
 
 
 def run_get_batch(
