@@ -14,6 +14,7 @@ from cs336_basics.model import Embedding
 from cs336_basics.model import SwiGLU
 from cs336_basics.model import scaled_dot_product_attention
 from cs336_basics.model import MultiHeadAttention
+from cs336_basics.model import apply_rope
 
 def run_linear(
     d_in: int,
@@ -220,7 +221,7 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    raise NotImplementedError
+    return apply_rope(in_query_or_key, theta, max_seq_len, token_positions)
 
 
 def run_transformer_block(

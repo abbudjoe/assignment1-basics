@@ -85,3 +85,32 @@ def scaled_dot_product_attention(
   weights = torch.softmax(scores, dim=-1)
   return weights @ V
 
+def apply_rope(
+  x: torch.Tensor,
+  theta: float,
+  max_seq_len: int, # max_seq_len is used by cached RoPE implementations; this simple version computes angles directly.
+  token_positions: torch.Tensor,
+) -> torch.Tensor:
+  d_k = x.shape[-1]
+
+  x_even = x[..., 0::2]
+  x_odd = x[..., 1::2]
+
+  inv_freq = 1.0 / (
+    theta ** (torch.arange(0, d_k, 2, device=x.device, dtype=x.dtype) / d_k)
+  )
+  angles = token_positions[..., None].to(device=x.device, dtype=x.dtype) * inv_freq
+  cos = torch.cos(angles)
+  sin = torch.sin(angles)
+
+  rotated_even = x_even * cos - x_odd * sin
+  rotated_odd = x_even * sin + x_odd * cos
+
+  output = torch.empty_like(x)
+  output[..., 0::2] = rotated_even
+  output[..., 1::2] = rotated_odd
+
+  return output
+
+
+
