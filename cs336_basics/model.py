@@ -83,6 +83,17 @@ class MultiHeadAttention(nn.Module):
     attn = attn.reshape(*leading_dims, seq, d_model)  
     return self.o_proj(attn)
 
+class RMSNorm(nn.Module):
+  def __init__(self, d_model: int, eps: float):
+    super().__init__()
+    self.eps = eps
+    self.weight = nn.Parameter(torch.empty(d_model))
+  
+  def forward(self, x: torch.Tensor):
+    rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
+    normalized = x / rms
+    return normalized * self.weight
+
 def scaled_dot_product_attention(
   Q: torch.Tensor, 
   K: torch.Tensor, 
