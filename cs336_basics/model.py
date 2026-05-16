@@ -47,7 +47,13 @@ class MultiHeadAttention(nn.Module):
     self.v_proj = Linear(d_model, d_model)
     self.o_proj = Linear(d_model, d_model)
 
-  def forward(self, x):
+  def forward(
+    self, 
+    x: torch.Tensor,
+    token_positions: torch.Tensor | None = None, 
+    theta: float | None = None, 
+    max_seq_len: int | None = None,
+  ):
     # name runtime input dimensions
     *leading_dims, seq, d_model = x.shape
 
@@ -59,6 +65,12 @@ class MultiHeadAttention(nn.Module):
     # split the feature dimension into heads, and move heads before sequence
     Q = Q.view(*leading_dims, seq, self.num_heads, self.head_dim).transpose(1, 2)
     K = K.view(*leading_dims, seq, self.num_heads, self.head_dim).transpose(1, 2)
+   
+
+    if token_positions is not None:
+      Q = apply_rope(Q, theta, max_seq_len, token_positions)
+      K = apply_rope(K, theta, max_seq_len, token_positions)
+
     V = V.view(*leading_dims, seq, self.num_heads, self.head_dim).transpose(1, 2)
 
     mask = torch.tril(torch.ones(seq, seq, dtype=torch.bool, device=x.device))
