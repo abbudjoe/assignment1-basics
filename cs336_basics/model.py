@@ -94,6 +94,43 @@ class RMSNorm(nn.Module):
     normalized = x / rms
     return normalized * self.weight
 
+class TransformerBlock(nn.Module):
+  def __init__(
+    self, 
+    d_model: int, 
+    num_heads: int, 
+    d_ff: int, 
+    max_seq_len: int, 
+    theta: int
+  ):
+    super().__init__()
+    self.ln1 = RMSNorm(d_model, eps=1e-5)
+    self.attn = MultiHeadAttention(d_model, num_heads)
+    self.ln2 = RMSNorm(d_model, eps=1e-5)
+    self.ffn = SwiGLU(d_model, d_ff)
+
+    self.max_seq_len = max_seq_len
+    self.theta = theta
+
+  def forward(self, x: torch.Tensor):
+    *leading_dims, seq, d_model = x.shape
+
+    token_positions = torch.arange(seq, device=x.device)
+
+    attn_input = self.ln1(x)
+    attn_update = self.attn(
+      attn_input, 
+      token_positions=token_positions,
+      theta=self.theta,
+      max_seq_len=self.max_seq_len,
+    )
+    x = x + attn_update
+
+    ffn_input = self.ln2(x)
+    ffn_update = self.ffn(ffn_input)
+    x = x + self.ffn_update
+    return x
+
 def scaled_dot_product_attention(
   Q: torch.Tensor, 
   K: torch.Tensor, 
