@@ -17,6 +17,7 @@ from cs336_basics.model import MultiHeadAttention
 from cs336_basics.model import apply_rope
 from cs336_basics.model import RMSNorm
 from cs336_basics.model import TransformerBlock
+from cs336_basics.model import TransformerLM
 
 def run_linear(
     d_in: int,
@@ -398,7 +399,19 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    layer = TransformerLM(
+      vocab_size,
+      context_length,
+      d_model,
+      num_layers,
+      num_heads,
+      d_ff,
+      rope_theta
+    )
+    layer.load_state_dict(weights)
+
+    return layer(in_indices)
+
 
 
 def run_rmsnorm(
