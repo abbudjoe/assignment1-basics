@@ -45,7 +45,7 @@ class MultiHeadAttention(nn.Module):
     self.q_proj = Linear(d_model, d_model)
     self.k_proj = Linear(d_model, d_model)
     self.v_proj = Linear(d_model, d_model)
-    self.o_proj = Linear(d_model, d_model)
+    self.output_proj = Linear(d_model, d_model)
 
   def forward(
     self, 
@@ -81,7 +81,7 @@ class MultiHeadAttention(nn.Module):
     
     #recombine all heads into one [batch, seq, d_model]
     attn = attn.reshape(*leading_dims, seq, d_model)  
-    return self.o_proj(attn)
+    return self.output_proj(attn)
 
 class RMSNorm(nn.Module):
   def __init__(self, d_model: int, eps: float):
@@ -128,7 +128,7 @@ class TransformerBlock(nn.Module):
 
     ffn_input = self.ln2(x)
     ffn_update = self.ffn(ffn_input)
-    x = x + self.ffn_update
+    x = x + ffn_update
     return x
 
 def scaled_dot_product_attention(
