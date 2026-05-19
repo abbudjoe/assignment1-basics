@@ -16,6 +16,7 @@ from cs336_basics.model import scaled_dot_product_attention
 from cs336_basics.model import MultiHeadAttention
 from cs336_basics.model import apply_rope
 from cs336_basics.model import RMSNorm
+from cs336_basics.model import TransformerBlock
 
 def run_linear(
     d_in: int,
@@ -306,7 +307,16 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    layer = TransformerBlock(
+      d_model, 
+      num_heads,
+      d_ff,
+      max_seq_len,
+      theta,
+    )
+    layer.load_state_dict(weights)
+
+    return layer(in_features)
 
 
 def run_transformer_lm(
